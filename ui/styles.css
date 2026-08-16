@@ -101,6 +101,12 @@ body {
   line-height: 1.1;
 }
 
+.mark__wordmark {
+  height: 2.2rem;
+  width: auto;
+  display: block;
+}
+
 .mark__desc { font-size: 0.875rem; color: var(--graphite); }
 
 /* The endpoint is the product — make it the thing you can grab. */
