@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Proxy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="frame">
+
+  <!-- ─── Masthead ─────────────────────────────────────────────── -->
+  <header class="masthead">
+    <div class="mark">
+      <span class="mark__rule" aria-hidden="true"></span>
+      <span class="mark__name">AI Proxy</span>
+      <span class="mark__desc">One local endpoint. Your keys stay on this machine.</span>
+    </div>
+
+    <button type="button" class="jack" data-copy="http://127.0.0.1:8181/v1">
+      <span class="jack__label">Point your tools here</span>
+      <span class="jack__value">http://127.0.0.1:8181/v1</span>
+      <span class="jack__hint" aria-hidden="true">Copy</span>
+    </button>
+  </header>
+
+  <!-- ─── Signal path (signature) ──────────────────────────────── -->
+  <section class="path" aria-labelledby="path-h">
+    <div class="path__head">
+      <h2 id="path-h">Signal path</h2>
+      <p class="verdict" id="verdict" role="status" aria-live="polite"></p>
+    </div>
+
+    <!-- Controls sit above the path so the two sides' readouts line up
+         row-for-row and you can read the substitution straight across. -->
+    <div class="console">
+      <div class="field-edit field-edit--dest">
+        <label for="dest">Destination</label>
+        <select id="dest">
+          <option value="groq">Groq</option>
+          <option value="openrouter">OpenRouter</option>
+          <option value="openai">OpenAI (direct)</option>
+          <option value="opencode">OpenCode Zen</option>
+          <option value="deepinfra">DeepInfra</option>
+          <option value="together">Together</option>
+        </select>
+      </div>
+
+      <div class="field-edit field-edit--model">
+        <label for="model">Model</label>
+        <input type="text" id="model" spellcheck="false" autocomplete="off" value="llama-3.3-70b-versatile">
+      </div>
+
+      <div class="presets" id="presets">
+        <button type="button" data-dest="groq" data-model="llama-3.3-70b-versatile">llama&#8209;3.3&#8209;70b</button>
+        <button type="button" data-dest="groq" data-model="llama-3.1-8b-instant">llama&#8209;3.1&#8209;8b</button>
+        <button type="button" data-dest="openrouter" data-model="anthropic/claude-3.5-sonnet">claude&#8209;3.5</button>
+        <button type="button" data-dest="openai" data-model="gpt-4o">gpt&#8209;4o</button>
+        <button type="button" data-dest="opencode" data-model="deepseek-v4-flash">deepseek&#8209;v4&#8209;flash</button>
+      </div>
+    </div>
+
+    <div class="path__body" id="path-body">
+
+      <!-- Left: what you send -->
+      <article class="pane pane--in">
+        <h3 class="pane__title">Your tool sends</h3>
+        <dl class="fields">
+          <div class="fields__row">
+            <dt>host</dt>
+            <dd>127.0.0.1:8181</dd>
+          </div>
+          <div class="fields__row">
+            <dt>model</dt>
+            <dd id="sent-model">groq/llama-3.3-70b-versatile</dd>
+          </div>
+          <div class="fields__row">
+            <dt>authorization</dt>
+            <dd>Bearer sk-dummy</dd>
+          </div>
+        </dl>
+      </article>
+
+      <!-- Wire -->
+      <div class="wire" aria-hidden="true"><i class="wire__pulse"></i></div>
+
+      <!-- Middle: what the proxy does -->
+      <article class="pane pane--mid">
+        <h3 class="pane__title">Proxy</h3>
+        <ol class="ops" id="ops"></ol>
+      </article>
+
+      <!-- Wire -->
+      <div class="wire" aria-hidden="true"><i class="wire__pulse"></i></div>
+
+      <!-- Right: what actually arrives -->
+      <article class="pane pane--out" id="pane-out">
+        <h3 class="pane__title">Upstream receives</h3>
+        <dl class="fields">
+          <div class="fields__row">
+            <dt>host</dt>
+            <dd id="up-host">api.groq.com</dd>
+          </div>
+          <div class="fields__row">
+            <dt>model</dt>
+            <dd id="up-model">llama-3.3-70b-versatile</dd>
+          </div>
+          <div class="fields__row">
+            <dt>authorization</dt>
+            <dd id="up-auth">Bearer &lt;groq key&gt;</dd>
+          </div>
+        </dl>
+        <p class="pane__note" id="up-note"></p>
+      </article>
+
+    </div>
+  </section>
+
+  <!-- ─── Keys + bench ─────────────────────────────────────────── -->
+  <div class="row">
+
+    <section class="panel" aria-labelledby="keys-h">
+      <div class="panel__head">
+        <h2 id="keys-h">Keys</h2>
+        <button type="button" class="btn btn--primary" id="add-key">Add key</button>
+      </div>
+      <p class="panel__sub">
+        Stored as plain text in <code>~/.config/ai-proxy/config.json</code>,
+        readable only by you (mode 0600). Not encrypted.
+      </p>
+      <ul class="keys" id="keys"></ul>
+    </section>
+
+    <section class="panel" aria-labelledby="bench-h">
+      <div class="panel__head">
+        <h2 id="bench-h">Bench test</h2>
+        <span class="latency" id="latency"></span>
+      </div>
+      <p class="panel__sub">Sends one request through the proxy on the route above.</p>
+
+      <form class="bench" id="bench">
+        <label class="sr-only" for="prompt">Prompt</label>
+        <input type="text" id="prompt" spellcheck="false" value="Say 'proxy online' and nothing else.">
+        <button type="submit" class="btn btn--primary" id="send">Send</button>
+      </form>
+
+      <!-- No stray whitespace: .reply is pre-wrap, so indentation would render. -->
+      <output class="reply" id="reply" for="prompt" aria-live="polite"><span class="reply__idle">No request sent yet.</span></output>
+
+      <details class="raw hidden" id="raw-wrap">
+        <summary>Raw response</summary>
+        <pre class="raw__body" id="raw"></pre>
+      </details>
+    </section>
+
+  </div>
+
+  <!-- ─── Handoff ──────────────────────────────────────────────── -->
+  <section class="panel" aria-labelledby="handoff-h">
+    <div class="panel__head">
+      <h2 id="handoff-h">Hand off to a tool</h2>
+      <button type="button" class="btn" id="copy-handoff">Copy</button>
+    </div>
+
+    <div class="tabs" role="tablist" aria-label="Handoff format">
+      <button type="button" role="tab" id="tab-shell"  aria-controls="p-shell"  aria-selected="true">Shell</button>
+      <button type="button" role="tab" id="tab-agent"  aria-controls="p-agent"  aria-selected="false" tabindex="-1">Agent prompt</button>
+      <button type="button" role="tab" id="tab-python" aria-controls="p-python" aria-selected="false" tabindex="-1">Python</button>
+    </div>
+
+    <pre class="snippet" role="tabpanel" id="p-shell"  aria-labelledby="tab-shell"  tabindex="0"></pre>
+    <pre class="snippet hidden" role="tabpanel" id="p-agent"  aria-labelledby="tab-agent"  tabindex="0"></pre>
+    <pre class="snippet hidden" role="tabpanel" id="p-python" aria-labelledby="tab-python" tabindex="0"></pre>
+  </section>
+
+  <footer class="foot">
+    <span>Bound to 127.0.0.1 only — nothing on your network can reach it.</span>
+  </footer>
+
+</div>
+
+<!-- ─── Add key ────────────────────────────────────────────────── -->
+<dialog class="sheet" id="key-dialog">
+  <form method="dialog" class="sheet__form" id="key-form">
+    <h2>Add key</h2>
+    <p class="sheet__sub">Saved to <code>~/.config/ai-proxy/config.json</code> on this machine.</p>
+
+    <div class="field-edit">
+      <label for="k-provider">Provider</label>
+      <input type="text" id="k-provider" spellcheck="false" autocomplete="off" placeholder="groq" required>
+      <span class="field-edit__hint">Routable providers: groq, openrouter, openai, opencode, deepinfra, together.</span>
+    </div>
+
+    <div class="field-edit">
+      <label for="k-secret">Key</label>
+      <input type="password" id="k-secret" autocomplete="off" placeholder="Paste the provider's key" required>
+    </div>
+
+    <p class="sheet__error hidden" id="k-error"></p>
+
+    <div class="sheet__actions">
+      <button type="button" class="btn" id="k-cancel">Cancel</button>
+      <button type="submit" class="btn btn--primary">Save key</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="toast hidden" id="toast" role="status" aria-live="polite"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
