@@ -18,15 +18,25 @@
   <header class="masthead">
     <div class="mark">
       <span class="mark__rule" aria-hidden="true"></span>
-      <span class="mark__name"><img src="assets/wordmark.jpeg" alt="Gatekey" class="mark__wordmark"></span>
-      <span class="mark__desc">One local endpoint. Your keys stay on this machine.</span>
+      <span class="mark__row">
+        <span class="mark__name"><img src="assets/wordmark.jpeg" alt="Gatekey" class="mark__wordmark"></span>
+        <span class="mark__desc">One local endpoint. Your keys stay on this machine.</span>
+      </span>
     </div>
 
-    <button type="button" class="jack" data-copy="http://127.0.0.1:8181/v1">
-      <span class="jack__label">Point your tools here</span>
-      <span class="jack__value">http://127.0.0.1:8181/v1</span>
-      <span class="jack__hint" aria-hidden="true">Copy</span>
-    </button>
+    <div class="masthead__actions">
+      <button type="button" class="jack" data-copy="http://127.0.0.1:8181/v1">
+        <span class="jack__label">Point your tools here</span>
+        <span class="jack__value">http://127.0.0.1:8181/v1</span>
+        <span class="jack__hint" aria-hidden="true">Copy</span>
+      </button>
+      <button type="button" class="gear" id="settings-open" aria-label="Open settings" title="Settings">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 8.25A3.75 3.75 0 1 0 12 15.75 3.75 3.75 0 0 0 12 8.25Z"></path>
+          <path d="M19.2 13.25a7.7 7.7 0 0 0 0-2.5l2-1.55-2-3.46-2.5 1a7.7 7.7 0 0 0-2.16-1.25L14.16 2h-4.32l-.38 3.49A7.7 7.7 0 0 0 7.3 6.74l-2.5-1-2 3.46 2 1.55a7.7 7.7 0 0 0 0 2.5l-2 1.55 2 3.46 2.5-1a7.7 7.7 0 0 0 2.16 1.25L9.84 22h4.32l.38-3.49a7.7 7.7 0 0 0 2.16-1.25l2.5 1 2-3.46-2-1.55Z"></path>
+        </svg>
+      </button>
+    </div>
   </header>
 
   <!-- ─── Signal path (signature) ──────────────────────────────── -->
@@ -53,15 +63,10 @@
 
       <div class="field-edit field-edit--model">
         <label for="model">Model</label>
-        <input type="text" id="model" spellcheck="false" autocomplete="off" value="llama-3.3-70b-versatile">
+        <input type="text" id="model" spellcheck="false" autocomplete="off" placeholder="Enter a model ID">
       </div>
 
       <div class="presets" id="presets">
-        <button type="button" data-dest="groq" data-model="llama-3.3-70b-versatile">llama&#8209;3.3&#8209;70b</button>
-        <button type="button" data-dest="groq" data-model="llama-3.1-8b-instant">llama&#8209;3.1&#8209;8b</button>
-        <button type="button" data-dest="openrouter" data-model="anthropic/claude-3.5-sonnet">claude&#8209;3.5</button>
-        <button type="button" data-dest="openai" data-model="gpt-4o">gpt&#8209;4o</button>
-        <button type="button" data-dest="opencode" data-model="deepseek-v4-flash">deepseek&#8209;v4&#8209;flash</button>
       </div>
     </div>
 
@@ -124,59 +129,67 @@
   <!-- ─── Keys + bench ─────────────────────────────────────────── -->
   <div class="row">
 
-    <section class="panel" aria-labelledby="keys-h">
-      <div class="panel__head">
-        <h2 id="keys-h">Keys</h2>
-        <button type="button" class="btn btn--primary" id="add-key">Add key</button>
-      </div>
-      <p class="panel__sub">
-        Stored as plain text in <code>~/.config/gatekey-proxy/config.json</code>,
-        readable only by you (mode 0600). Not encrypted.
-      </p>
-      <ul class="keys" id="keys"></ul>
-    </section>
+    <div class="stack">
 
-    <section class="panel" aria-labelledby="bench-h">
-      <div class="panel__head">
-        <h2 id="bench-h">Bench test</h2>
-        <span class="latency" id="latency"></span>
-      </div>
-      <p class="panel__sub">Sends one request through the proxy on the route above.</p>
+      <section class="panel" aria-labelledby="keys-h">
+        <div class="panel__head">
+          <h2 id="keys-h">Keys</h2>
+          <button type="button" class="btn btn--primary" id="add-key">Add key</button>
+        </div>
+        <p class="panel__sub">
+          Stored as plain text in <code>~/.config/gatekey-proxy/config.json</code>,
+          readable only by you (mode 0600). Not encrypted.
+        </p>
+        <ul class="keys" id="keys"></ul>
+      </section>
 
-      <form class="bench" id="bench">
-        <label class="sr-only" for="prompt">Prompt</label>
-        <input type="text" id="prompt" spellcheck="false" value="Say 'proxy online' and nothing else.">
-        <button type="submit" class="btn btn--primary" id="send">Send</button>
-      </form>
+    </div>
 
-      <!-- No stray whitespace: .reply is pre-wrap, so indentation would render. -->
-      <output class="reply" id="reply" for="prompt" aria-live="polite"><span class="reply__idle">No request sent yet.</span></output>
+    <div class="stack">
 
-      <details class="raw hidden" id="raw-wrap">
-        <summary>Raw response</summary>
-        <pre class="raw__body" id="raw"></pre>
-      </details>
-    </section>
+      <section class="panel" aria-labelledby="bench-h">
+        <div class="panel__head">
+          <h2 id="bench-h">Bench test</h2>
+          <span class="latency" id="latency"></span>
+        </div>
+        <p class="panel__sub">Sends one request through the proxy on the route above.</p>
+
+        <form class="bench" id="bench">
+          <label class="sr-only" for="prompt">Prompt</label>
+          <input type="text" id="prompt" spellcheck="false" value="Say 'proxy online' and nothing else.">
+          <button type="submit" class="btn btn--primary" id="send">Send</button>
+        </form>
+
+        <!-- No stray whitespace: .reply is pre-wrap, so indentation would render. -->
+        <output class="reply" id="reply" for="prompt" aria-live="polite"><span class="reply__idle">No request sent yet.</span></output>
+
+        <details class="raw hidden" id="raw-wrap">
+          <summary>Raw response</summary>
+          <pre class="raw__body" id="raw"></pre>
+        </details>
+      </section>
+
+      <!-- ─── Handoff ──────────────────────────────────────────────── -->
+      <section class="panel" aria-labelledby="handoff-h">
+        <div class="panel__head">
+          <h2 id="handoff-h">Hand off to a tool</h2>
+          <button type="button" class="btn" id="copy-handoff">Copy</button>
+        </div>
+
+        <div class="tabs" role="tablist" aria-label="Handoff format">
+          <button type="button" role="tab" id="tab-shell"  aria-controls="p-shell"  aria-selected="true">Shell</button>
+          <button type="button" role="tab" id="tab-agent"  aria-controls="p-agent"  aria-selected="false" tabindex="-1">Agent prompt</button>
+          <button type="button" role="tab" id="tab-python" aria-controls="p-python" aria-selected="false" tabindex="-1">Python</button>
+        </div>
+
+        <pre class="snippet" role="tabpanel" id="p-shell"  aria-labelledby="tab-shell"  tabindex="0"></pre>
+        <pre class="snippet hidden" role="tabpanel" id="p-agent"  aria-labelledby="tab-agent"  tabindex="0"></pre>
+        <pre class="snippet hidden" role="tabpanel" id="p-python" aria-labelledby="tab-python" tabindex="0"></pre>
+      </section>
+
+    </div>
 
   </div>
-
-  <!-- ─── Handoff ──────────────────────────────────────────────── -->
-  <section class="panel" aria-labelledby="handoff-h">
-    <div class="panel__head">
-      <h2 id="handoff-h">Hand off to a tool</h2>
-      <button type="button" class="btn" id="copy-handoff">Copy</button>
-    </div>
-
-    <div class="tabs" role="tablist" aria-label="Handoff format">
-      <button type="button" role="tab" id="tab-shell"  aria-controls="p-shell"  aria-selected="true">Shell</button>
-      <button type="button" role="tab" id="tab-agent"  aria-controls="p-agent"  aria-selected="false" tabindex="-1">Agent prompt</button>
-      <button type="button" role="tab" id="tab-python" aria-controls="p-python" aria-selected="false" tabindex="-1">Python</button>
-    </div>
-
-    <pre class="snippet" role="tabpanel" id="p-shell"  aria-labelledby="tab-shell"  tabindex="0"></pre>
-    <pre class="snippet hidden" role="tabpanel" id="p-agent"  aria-labelledby="tab-agent"  tabindex="0"></pre>
-    <pre class="snippet hidden" role="tabpanel" id="p-python" aria-labelledby="tab-python" tabindex="0"></pre>
-  </section>
 
   <footer class="foot">
     <span>Bound to 127.0.0.1 only — nothing on your network can reach it.</span>
@@ -208,6 +221,48 @@
       <button type="submit" class="btn btn--primary">Save key</button>
     </div>
   </form>
+</dialog>
+
+<!-- ─── Settings ───────────────────────────────────────────────── -->
+<dialog class="sheet sheet--settings" id="settings-dialog">
+  <div class="sheet__form">
+    <div class="sheet__head">
+      <h2>Settings</h2>
+      <button type="button" class="btn" id="settings-close">Close</button>
+    </div>
+    <p class="sheet__sub">
+      Saved models become the signal-path presets. Any model ID can still be entered directly.
+    </p>
+    <ul class="models" id="models"></ul>
+
+    <form id="model-form" class="model-add">
+      <h3>Add model</h3>
+      <div class="model-add__fields">
+        <div class="field-edit">
+          <label for="m-provider">Destination</label>
+          <select id="m-provider" required>
+            <option value="groq">Groq</option>
+            <option value="openrouter">OpenRouter</option>
+            <option value="openai">OpenAI (direct)</option>
+            <option value="opencode">OpenCode Zen</option>
+            <option value="deepinfra">DeepInfra</option>
+            <option value="together">Together</option>
+          </select>
+        </div>
+
+        <div class="field-edit">
+          <label for="m-model">Model ID</label>
+          <input type="text" id="m-model" spellcheck="false" autocomplete="off" placeholder="llama-3.3-70b-versatile" required>
+        </div>
+      </div>
+
+      <p class="sheet__error hidden" id="m-error"></p>
+
+      <div class="sheet__actions">
+        <button type="submit" class="btn btn--primary">Save model</button>
+      </div>
+    </form>
+  </div>
 </dialog>
 
 <div class="toast hidden" id="toast" role="status" aria-live="polite"></div>

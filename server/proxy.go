@@ -32,24 +32,61 @@ func uiFileSystem() http.FileSystem {
 func (s *ProxyServer) Start() error {
 	// API routes for the Dashboard
 	http.HandleFunc("/api/keys", s.handleKeysAPI)
+	http.HandleFunc("/api/models", s.handleModelsAPI)
 
 	// Gatekey Proxy Route
 	http.HandleFunc("/v1/chat/completions", s.handleChatCompletions)
-	
+
 	// Serve the dashboard from ./ui when it exists (live edits, no rebuild);
 	// otherwise fall back to the copy embedded in the binary so
 	// "gatekey-proxy start" works from any directory.
 	http.Handle("/", http.FileServer(uiFileSystem()))
-	
+
 	// Bind to localhost only for security
 	addr := fmt.Sprintf("127.0.0.1:%s", s.port)
 	log.Printf("Starting Gatekey Proxy server securely on http://%s", addr)
 	return http.ListenAndServe(addr, nil)
 }
 
+func (s *ProxyServer) handleModelsAPI(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	switch r.Method {
+	case http.MethodGet:
+		models, err := config.LoadModels()
+		if err != nil {
+			http.Error(w, `{"error":"failed to get models"}`, http.StatusInternalServerError)
+			return
+		}
+		json.NewEncoder(w).Encode(models)
+
+	case http.MethodPut:
+		var models []config.ModelSetting
+		decoder := json.NewDecoder(r.Body)
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&models); err != nil {
+			http.Error(w, `{"error":"invalid model settings"}`, http.StatusBadRequest)
+			return
+		}
+
+		for i := range models {
+			models[i].Provider = strings.ToLower(strings.TrimSpace(models[i].Provider))
+			models[i].Model = strings.TrimSpace(models[i].Model)
+		}
+		if err := config.SaveModels(models); err != nil {
+			http.Error(w, fmt.Sprintf(`{"error":%q}`, err.Error()), http.StatusBadRequest)
+			return
+		}
+		json.NewEncoder(w).Encode(models)
+
+	default:
+		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+	}
+}
+
 func (s *ProxyServer) handleKeysAPI(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	
+
 	switch r.Method {
 	case http.MethodGet:
 		providers, err := config.GetAllProviders()
@@ -61,7 +98,7 @@ func (s *ProxyServer) handleKeysAPI(w http.ResponseWriter, r *http.Request) {
 			providers = []string{}
 		}
 		json.NewEncoder(w).Encode(providers)
-		
+
 	case http.MethodPost:
 		var req struct {
 			Provider string `json:"provider"`
@@ -81,7 +118,7 @@ func (s *ProxyServer) handleKeysAPI(w http.ResponseWriter, r *http.Request) {
 		}
 		w.WriteHeader(http.StatusCreated)
 		w.Write([]byte(`{"success":true}`))
-		
+
 	case http.MethodDelete:
 		provider := r.URL.Query().Get("provider")
 		if provider == "" {
@@ -93,7 +130,7 @@ func (s *ProxyServer) handleKeysAPI(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		w.Write([]byte(`{"success":true}`))
-		
+
 	default:
 		http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
 	}
@@ -153,7 +190,7 @@ func (s *ProxyServer) handleChatCompletions(w http.ResponseWriter, r *http.Reque
 			proxyReq.Header.Add(k, v)
 		}
 	}
-	
+
 	// Inject security key and correct content type
 	proxyReq.Header.Set("Authorization", "Bearer "+key)
 	proxyReq.Header.Set("Content-Type", "application/json")

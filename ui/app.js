@@ -29,16 +29,26 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => (
 
 /* Mirror of routeModel(). Returns what the upstream actually receives. */
 function resolve(sentModel) {
-  for (const name of Object.keys(DESTINATIONS)) {
-    const { prefix, host, path } = DESTINATIONS[name];
-    if (prefix && sentModel.startsWith(prefix)) {
-      return { provider: name, model: sentModel.slice(prefix.length), host, path, ok: true };
+  const slash = sentModel.indexOf('/');
+  if (slash > 0) {
+    const provider = sentModel.slice(0, slash);
+    const model = sentModel.slice(slash + 1);
+    const known = DESTINATIONS[provider];
+    if (known) {
+      return { provider, model, host: known.host, path: known.path, prefix: `${provider}/`, ok: true };
     }
+    return {
+      provider,
+      model,
+      host: `api.${provider}.com`,
+      path: '/v1/chat/completions',
+      prefix: `${provider}/`,
+      ok: true,
+    };
   }
-  // Everything else falls through to OpenAI — and the prefix is NOT stripped.
+
   const { host, path } = DESTINATIONS.openai;
-  const stray = sentModel.includes('/') ? sentModel.split('/')[0] : null;
-  return { provider: 'openai', model: sentModel, host, path, ok: !stray, stray };
+  return { provider: 'openai', model: sentModel, host, path, prefix: '', ok: true };
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -58,6 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const toast     = $('toast');
 
   let keysOnFile = [];
+  let savedModels = [];
   let toastTimer;
 
   /* ── Feedback ─────────────────────────────────────────────── */
@@ -81,7 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
   /* ── Signal path ──────────────────────────────────────────── */
 
   function currentSentModel() {
-    const id = model.value.trim() || 'gpt-4o';
+    const id = model.value.trim();
     return DESTINATIONS[dest.value].prefix + id;
   }
 
@@ -89,14 +100,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const sent = currentSentModel();
     const up = resolve(sent);
     const hasKey = keysOnFile.includes(up.provider);
-    const faulted = !up.ok || !hasKey;
+    const hasModel = Boolean(up.model);
+    const faulted = !up.ok || !hasModel || !hasKey;
 
     sentModel.textContent = sent;
 
     // What the proxy does, in order.
     const steps = [];
-    if (up.ok && DESTINATIONS[up.provider].prefix) {
-      steps.push({ html: `Strip <code>${esc(DESTINATIONS[up.provider].prefix)}</code> from the model id` });
+    if (up.ok && up.prefix) {
+      steps.push({ html: `Strip <code>${esc(up.prefix)}</code> from the model id` });
     } else if (up.ok) {
       steps.push({ html: 'No prefix, so the request takes the default route' });
     } else {
@@ -112,6 +124,10 @@ document.addEventListener('DOMContentLoaded', () => {
       ? { html: `Swap <code>sk-dummy</code> for your <code>${esc(up.provider)}</code> key` }
       : { fault: true, html: `No <code>${esc(up.provider)}</code> key on file` });
 
+    if (!hasModel) {
+      steps.unshift({ fault: true, html: 'No model ID entered' });
+    }
+
     steps.push({ html: `Forward to <code>${esc(up.host)}</code>` });
 
     ops.innerHTML = steps
@@ -120,13 +136,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // What actually arrives.
     upHost.textContent = up.host;
-    upModel.textContent = up.model;
-    upModel.classList.toggle('is-fault', !up.ok);
+    upModel.textContent = up.model || '—';
+    upModel.classList.toggle('is-fault', !up.ok || !hasModel);
     upAuth.textContent = hasKey ? `Bearer <${up.provider} key>` : `Bearer <no ${up.provider} key>`;
     upAuth.classList.toggle('is-fault', !hasKey);
     paneOut.classList.toggle('is-fault', faulted);
 
-    if (!up.ok) {
+    if (!hasModel) {
+      upNote.textContent = 'Enter the exact model ID expected by the selected provider.';
+      upNote.className = 'pane__note is-fault';
+    } else if (!up.ok) {
       upNote.textContent = `OpenAI will reject "${up.model}" — it is not a model id OpenAI knows. Pick OpenRouter as the destination if you want to reach ${up.stray} models.`;
       upNote.className = 'pane__note is-fault';
     } else if (!hasKey) {
@@ -138,7 +157,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Verdict.
-    if (!up.ok) {
+    if (!hasModel) {
+      verdict.textContent = 'Blocked — no model ID';
+    } else if (!up.ok) {
       verdict.textContent = `Unroutable — ${up.stray}/ has no rule`;
     } else if (!hasKey) {
       verdict.textContent = `Blocked — no ${up.provider} key`;
@@ -166,12 +187,127 @@ document.addEventListener('DOMContentLoaded', () => {
   dest.addEventListener('change', () => render());
   model.addEventListener('input', () => render());
 
-  document.querySelectorAll('#presets button').forEach((b) => {
-    b.addEventListener('click', () => {
-      dest.value = b.dataset.dest;
-      model.value = b.dataset.model;
-      render();
+  $('presets').addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    dest.value = b.dataset.dest;
+    model.value = b.dataset.model;
+    render();
+  });
+
+  /* ── Model settings ───────────────────────────────────────── */
+
+  const models = $('models');
+  const settingsDialog = $('settings-dialog');
+  const modelForm = $('model-form');
+  const mProvider = $('m-provider');
+  const mModel = $('m-model');
+  const mError = $('m-error');
+
+  function renderPresets() {
+    $('presets').innerHTML = savedModels.map((entry) => (
+      `<button type="button" data-dest="${esc(entry.provider)}" data-model="${esc(entry.model)}">${esc(entry.model)}</button>`
+    )).join('');
+  }
+
+  function renderModelSettings() {
+    if (!savedModels.length) {
+      models.innerHTML = '<li class="models__empty">No saved models. Enter any model ID above or add a preset.</li>';
+      return;
+    }
+
+    models.innerHTML = savedModels.map((entry) => `
+      <li class="model-setting">
+        <span class="model-setting__provider">${esc(entry.provider)}</span>
+        <span class="model-setting__id">${esc(entry.model)}</span>
+        <button type="button" class="key__act" data-use-provider="${esc(entry.provider)}" data-use-model="${esc(entry.model)}">Use</button>
+        <button type="button" class="key__act key__act--remove" data-remove-provider="${esc(entry.provider)}" data-remove-model="${esc(entry.model)}">Remove</button>
+      </li>`).join('');
+  }
+
+  async function loadModels() {
+    try {
+      const res = await fetch('/api/models');
+      if (!res.ok) throw new Error(await res.text());
+      savedModels = (await res.json()) || [];
+      if (!model.value.trim() && savedModels.length) {
+        dest.value = savedModels[0].provider;
+        model.value = savedModels[0].model;
+      }
+    } catch {
+      savedModels = [];
+      say('Could not read model settings — is the proxy still running?');
+    }
+    renderPresets();
+    renderModelSettings();
+    render({ animate: false });
+  }
+
+  async function saveModels(next) {
+    const res = await fetch('/api/models', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(next),
     });
+    if (!res.ok) throw new Error(await res.text());
+    savedModels = await res.json();
+    renderPresets();
+    renderModelSettings();
+    render({ animate: false });
+  }
+
+  models.addEventListener('click', (e) => {
+    const use = e.target.closest('[data-use-provider]');
+    if (use) {
+      dest.value = use.dataset.useProvider;
+      model.value = use.dataset.useModel;
+      render();
+      settingsDialog.close();
+      return;
+    }
+
+    const remove = e.target.closest('[data-remove-provider]');
+    if (!remove) return;
+    const provider = remove.dataset.removeProvider;
+    const modelID = remove.dataset.removeModel;
+    if (!confirm(`Remove ${provider}/${modelID} from your saved models?`)) return;
+    saveModels(savedModels.filter((entry) => entry.provider !== provider || entry.model !== modelID))
+      .then(() => say(`Removed ${modelID}`))
+      .catch(() => say(`Could not remove ${modelID}`));
+  });
+
+  $('settings-open').addEventListener('click', () => {
+    mError.classList.add('hidden');
+    modelForm.reset();
+    mProvider.value = dest.value;
+    settingsDialog.showModal();
+  });
+
+  $('settings-close').addEventListener('click', () => settingsDialog.close());
+
+  modelForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const entry = { provider: mProvider.value, model: mModel.value.trim() };
+    if (!entry.model) return;
+    if (savedModels.some((item) => item.provider === entry.provider && item.model === entry.model)) {
+      mError.textContent = 'That model is already saved.';
+      mError.classList.remove('hidden');
+      return;
+    }
+
+    try {
+      await saveModels([...savedModels, entry]);
+      dest.value = entry.provider;
+      model.value = entry.model;
+      render();
+      modelForm.reset();
+      mProvider.value = entry.provider;
+      mModel.focus();
+      say(`Saved ${entry.model}`);
+    } catch (err) {
+      mError.textContent = `Could not save the model: ${err.message || 'the proxy did not respond'}`;
+      mError.classList.remove('hidden');
+    }
   });
 
   /* ── Keys ─────────────────────────────────────────────────── */
@@ -200,13 +336,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     keys.innerHTML = all.map((p) => {
       const onFile = keysOnFile.includes(p);
-      const routable = ROUTABLE.includes(p);
       const name = esc(p);
       return `
         <li class="key ${onFile ? '' : 'key--empty'}">
           <span class="key__dot" aria-hidden="true"></span>
           <span class="key__name">${name}</span>
-          ${routable ? '' : '<span class="key__note">no route uses this</span>'}
           <span class="key__state">${onFile ? 'on file' : 'not set'}</span>
           <button type="button" class="key__act" data-add="${name}">${onFile ? 'Replace' : 'Add'}</button>
           ${onFile ? `<button type="button" class="key__act key__act--remove" data-remove="${name}">Remove</button>` : ''}
@@ -395,4 +529,5 @@ document.addEventListener('DOMContentLoaded', () => {
 
   render({ animate: false });
   loadKeys();
+  loadModels();
 });

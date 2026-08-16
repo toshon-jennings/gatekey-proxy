@@ -22,7 +22,8 @@ endpoint, and picks the upstream based on a provider prefix in the model id.
 - Prefix-based routing (`groq/...`, `openrouter/...`, `opencode/...`, …)
 - Keys stored locally in `~/.config/gatekey-proxy/config.json`
   (dir mode 0700, file mode 0600, readable only by you — plaintext, not encrypted)
-- A served web dashboard for composing routes, managing keys, and bench-testing
+- A served web dashboard for composing routes, managing keys and saved model
+  presets, and bench-testing
 - Bound to `127.0.0.1` only — nothing on your network can reach it
 - Go binary + CLI, no runtime dependencies
 
@@ -65,7 +66,11 @@ export OPENAI_MODEL="groq/llama-3.3-70b-versatile"
 ```
 
 The dashboard (`http://127.0.0.1:8181/`) has a bench test and ready-to-copy
-handoff snippets for Shell, agent prompts, and Python.
+handoff snippets for Shell, agent prompts, and Python. The masthead gear opens
+a Settings modal where you can add or remove the provider/model presets shown
+above the signal path. Those settings persist in
+`~/.config/gatekey-proxy/models.json`; any model ID can still be entered
+directly without saving it first.
 
 ## Routing
 
@@ -105,7 +110,8 @@ keys list                    List all configured providers
 | `main.go`         | entry point, calls `cli.Run()`                              |
 | `cli/cli.go`      | `start`, `keys add`, `keys list`                            |
 | `config/config.go`| key store at `~/.config/gatekey-proxy/config.json`           |
-| `server/proxy.go` | `/api/keys`, `/v1/chat/completions`, static file server     |
+| `config/models.go`| saved model presets at `~/.config/gatekey-proxy/models.json` |
+| `server/proxy.go` | `/api/keys`, `/api/models`, `/v1/chat/completions`, UI      |
 | `ui/`             | dashboard — `index.html`, `styles.css`, `app.js`            |
 
 The dashboard is served from `./ui` when that folder exists in the process
