@@ -15,7 +15,7 @@ func getConfigPath() (string, error) {
 		return "", err
 	}
 	
-	dir := filepath.Join(home, ".config", "ai-proxy")
+	dir := filepath.Join(home, ".config", "gatekey-proxy")
 	// 0700 ensures only the owner can traverse or read this directory
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return "", fmt.Errorf("failed to create config directory: %w", err)

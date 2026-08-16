@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AI Proxy</title>
+<title>Gatekey Proxy</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -17,7 +17,7 @@
   <header class="masthead">
     <div class="mark">
       <span class="mark__rule" aria-hidden="true"></span>
-      <span class="mark__name">AI Proxy</span>
+      <span class="mark__name">Gatekey Proxy</span>
       <span class="mark__desc">One local endpoint. Your keys stay on this machine.</span>
     </div>
 
@@ -129,7 +129,7 @@
         <button type="button" class="btn btn--primary" id="add-key">Add key</button>
       </div>
       <p class="panel__sub">
-        Stored as plain text in <code>~/.config/ai-proxy/config.json</code>,
+        Stored as plain text in <code>~/.config/gatekey-proxy/config.json</code>,
         readable only by you (mode 0600). Not encrypted.
       </p>
       <ul class="keys" id="keys"></ul>
@@ -187,7 +187,7 @@
 <dialog class="sheet" id="key-dialog">
   <form method="dialog" class="sheet__form" id="key-form">
     <h2>Add key</h2>
-    <p class="sheet__sub">Saved to <code>~/.config/ai-proxy/config.json</code> on this machine.</p>
+    <p class="sheet__sub">Saved to <code>~/.config/gatekey-proxy/config.json</code> on this machine.</p>
 
     <div class="field-edit">
       <label for="k-provider">Provider</label>

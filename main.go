@@ -1,6 +1,6 @@
 package main
 
-import "github.com/toshonjennings/ai-proxy/cli"
+import "github.com/toshon-jennings/gatekey-proxy/cli"
 
 func main() {
 	cli.Run()

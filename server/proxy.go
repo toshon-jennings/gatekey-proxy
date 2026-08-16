@@ -10,8 +10,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/toshonjennings/ai-proxy/config"
-	"github.com/toshonjennings/ai-proxy/ui"
+	"github.com/toshon-jennings/gatekey-proxy/config"
+	"github.com/toshon-jennings/gatekey-proxy/ui"
 )
 
 type ProxyServer struct {
@@ -33,17 +33,17 @@ func (s *ProxyServer) Start() error {
 	// API routes for the Dashboard
 	http.HandleFunc("/api/keys", s.handleKeysAPI)
 
-	// AI Proxy Route
+	// Gatekey Proxy Route
 	http.HandleFunc("/v1/chat/completions", s.handleChatCompletions)
 	
 	// Serve the dashboard from ./ui when it exists (live edits, no rebuild);
 	// otherwise fall back to the copy embedded in the binary so
-	// "ai-proxy start" works from any directory.
+	// "gatekey-proxy start" works from any directory.
 	http.Handle("/", http.FileServer(uiFileSystem()))
 	
 	// Bind to localhost only for security
 	addr := fmt.Sprintf("127.0.0.1:%s", s.port)
-	log.Printf("Starting AI Proxy server securely on http://%s", addr)
+	log.Printf("Starting Gatekey Proxy server securely on http://%s", addr)
 	return http.ListenAndServe(addr, nil)
 }
 

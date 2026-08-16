@@ -1,5 +1,5 @@
 /* ──────────────────────────────────────────────────────────────
-   AI Proxy — dashboard behaviour
+   Gatekey Proxy — dashboard behaviour
 
    The signal path mirrors server/proxy.go:routeModel() exactly.
    If that function changes, change ROUTES + resolve() with it,
@@ -257,7 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   async function removeKey(provider) {
-    if (!confirm(`Remove the ${provider} key from ~/.config/ai-proxy/config.json?`)) return;
+    if (!confirm(`Remove the ${provider} key from ~/.config/gatekey-proxy/config.json?`)) return;
     try {
       const res = await fetch(`/api/keys?provider=${encodeURIComponent(provider)}`, { method: 'DELETE' });
       if (!res.ok) throw new Error();
@@ -378,7 +378,7 @@ document.addEventListener('DOMContentLoaded', () => {
       pathBody.classList.add('is-live');
     } catch (err) {
       latency.textContent = '';
-      reply.textContent = `Could not reach the proxy at ${ENDPOINT}. Check that "ai-proxy start" is still running.`;
+      reply.textContent = `Could not reach the proxy at ${ENDPOINT}. Check that "gatekey-proxy start" is still running.`;
       reply.classList.add('is-fault');
     } finally {
       send.disabled = false;
