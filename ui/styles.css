@@ -24,8 +24,8 @@
   --edge-lit:     #3a3d3b;
 
   /* The one accent */
-  --signal:     #2b45e8;
-  --signal-lit: #8296ff;
+  --signal:     #d97757;
+  --signal-lit: #f0a889;
 
   /* Load-bearing status only */
   --fault:      #b3261e;
@@ -437,7 +437,7 @@ input[type="text"], input[type="password"], select {
 input:focus-visible, select:focus-visible {
   outline: none;
   border-color: var(--signal);
-  box-shadow: 0 0 0 2px rgba(43, 69, 232, 0.25);
+  box-shadow: 0 0 0 2px rgba(217, 119, 87, 0.25);
 }
 
 /* Recessed fields inside the dark block.
@@ -451,7 +451,7 @@ input:focus-visible, select:focus-visible {
 
 .console input:focus-visible, .console select:focus-visible {
   border-color: var(--signal-lit);
-  box-shadow: 0 0 0 2px rgba(130, 150, 255, 0.3);
+  box-shadow: 0 0 0 2px rgba(240, 168, 137, 0.3);
 }
 
 select {
@@ -485,7 +485,7 @@ select {
 .btn:hover { border-color: var(--ink); }
 
 .btn--primary { color: #fff; background: var(--signal); border-color: var(--signal); }
-.btn--primary:hover { background: #1c33c4; border-color: #1c33c4; }
+.btn--primary:hover { background: #b85c3c; border-color: #b85c3c; }
 .btn:disabled { opacity: 0.45; cursor: default; }
 .btn--primary:disabled:hover { background: var(--signal); border-color: var(--signal); }
 
