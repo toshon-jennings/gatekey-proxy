@@ -70,3 +70,53 @@ func TestRouteModelStripsKnownAndGenericProviderPrefixes(t *testing.T) {
 		})
 	}
 }
+
+func TestUpdateSettingsRequireSameOriginDashboardRequest(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	srv := NewProxyServer("8181")
+	body := `{"autoCheck":true,"autoInstall":true}`
+
+	req := httptest.NewRequest(http.MethodPut, "/api/update", strings.NewReader(body))
+	res := httptest.NewRecorder()
+	srv.handleUpdateAPI(res, req)
+	if res.Code != http.StatusForbidden {
+		t.Fatalf("PUT /api/update without dashboard header = %d, want 403", res.Code)
+	}
+
+	req = httptest.NewRequest(http.MethodPut, "/api/update", strings.NewReader(body))
+	req.Header.Set("X-Gatekey-Request", "dashboard")
+	req.Header.Set("Origin", "http://attacker.example")
+	res = httptest.NewRecorder()
+	srv.handleUpdateAPI(res, req)
+	if res.Code != http.StatusForbidden {
+		t.Fatalf("cross-origin PUT /api/update = %d, want 403", res.Code)
+	}
+
+	req = httptest.NewRequest(http.MethodPut, "/api/update", strings.NewReader(body))
+	req.Header.Set("X-Gatekey-Request", "dashboard")
+	req.Header.Set("Origin", "http://example.com")
+	res = httptest.NewRecorder()
+	srv.handleUpdateAPI(res, req)
+	if res.Code != http.StatusOK {
+		t.Fatalf("same-origin PUT /api/update = %d, body = %s", res.Code, res.Body.String())
+	}
+	if !strings.Contains(res.Body.String(), `"autoInstall":true`) {
+		t.Fatalf("PUT /api/update body = %s", res.Body.String())
+	}
+}
+
+func TestSecurityHeaders(t *testing.T) {
+	handler := securityHeaders(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	res := httptest.NewRecorder()
+
+	handler.ServeHTTP(res, req)
+	if res.Header().Get("Content-Security-Policy") == "" {
+		t.Fatal("Content-Security-Policy header is missing")
+	}
+	if got := res.Header().Get("X-Frame-Options"); got != "DENY" {
+		t.Fatalf("X-Frame-Options = %q, want DENY", got)
+	}
+}

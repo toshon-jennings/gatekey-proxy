@@ -10,18 +10,27 @@ import (
 type Config map[string]string
 
 func getConfigPath() (string, error) {
+	dir, err := ConfigDir()
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(dir, "config.json"), nil
+}
+
+func ConfigDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
-	
+
 	dir := filepath.Join(home, ".config", "gatekey-proxy")
 	// 0700 ensures only the owner can traverse or read this directory
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return "", fmt.Errorf("failed to create config directory: %w", err)
 	}
 
-	return filepath.Join(dir, "config.json"), nil
+	return dir, nil
 }
 
 func LoadConfig() (Config, error) {
@@ -70,12 +79,12 @@ func GetKey(provider string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	
+
 	key, ok := cfg[provider]
 	if !ok {
 		return "", fmt.Errorf("key for provider '%s' not found", provider)
 	}
-	
+
 	return key, nil
 }
 
@@ -84,7 +93,7 @@ func SetKey(provider, key string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	cfg[provider] = key
 	return SaveConfig(cfg)
 }

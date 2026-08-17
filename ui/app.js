@@ -204,6 +204,151 @@ document.addEventListener('DOMContentLoaded', () => {
   const mModel = $('m-model');
   const mError = $('m-error');
 
+  /* ── Updates ──────────────────────────────────────────────── */
+
+  const updateVersion = $('update-version');
+  const updateStatus = $('update-status');
+  const updateCheck = $('update-check');
+  const updateStage = $('update-stage');
+  const updateRelease = $('update-release');
+  const updateAutoCheck = $('update-auto-check');
+  const updateAutoInstall = $('update-auto-install');
+  let updateState = null;
+  let updateBusy = false;
+
+  function trustedReleaseURL(raw) {
+    try {
+      const parsed = new URL(raw);
+      return parsed.protocol === 'https:' && parsed.hostname === 'github.com' ? parsed.href : '';
+    } catch {
+      return '';
+    }
+  }
+
+  function renderUpdateStatus(status) {
+    if (!status) return;
+    updateState = status;
+    updateVersion.textContent = `Current ${status.currentVersion}`;
+    updateStatus.textContent = status.message;
+    updateStatus.classList.toggle('is-error', status.state === 'error');
+    updateStatus.classList.toggle('is-ready', status.state === 'current' || status.state === 'staged');
+
+    updateAutoCheck.checked = status.autoCheck;
+    updateAutoInstall.checked = status.autoInstall;
+    updateAutoCheck.disabled = updateBusy;
+    updateAutoInstall.disabled = updateBusy || !status.autoCheck || !status.installSupported;
+    updateCheck.disabled = updateBusy;
+
+    const canStage = status.updateAvailable && status.installSupported && status.state !== 'staged';
+    updateStage.classList.toggle('hidden', !canStage);
+    updateStage.disabled = updateBusy;
+
+    const releaseURL = trustedReleaseURL(status.releaseUrl);
+    updateRelease.classList.toggle('hidden', !releaseURL);
+    if (releaseURL) {
+      updateRelease.href = releaseURL;
+    } else {
+      updateRelease.removeAttribute('href');
+    }
+  }
+
+  function setUpdateBusy(busy, message = '') {
+    updateBusy = busy;
+    if (message) {
+      updateStatus.textContent = message;
+      updateStatus.className = 'update-status';
+    }
+    if (updateState) renderUpdateStatus(updateState);
+    if (message) updateStatus.textContent = message;
+  }
+
+  async function updateRequest(path, options = {}) {
+    const headers = { 'X-Gatekey-Request': 'dashboard', ...(options.headers || {}) };
+    const res = await fetch(path, { ...options, headers });
+    const data = await res.json();
+    if (!res.ok) {
+      if (data.status) renderUpdateStatus(data.status);
+      throw new Error(data.error || 'the update request failed');
+    }
+    return data;
+  }
+
+  async function loadUpdateStatus() {
+    try {
+      const res = await fetch('/api/update');
+      if (!res.ok) throw new Error();
+      renderUpdateStatus(await res.json());
+    } catch {
+      updateStatus.textContent = 'Could not read update status from the proxy.';
+      updateStatus.className = 'update-status is-error';
+    }
+  }
+
+  updateCheck.addEventListener('click', async () => {
+    setUpdateBusy(true, 'Checking GitHub Releases…');
+    let failure = '';
+    try {
+      renderUpdateStatus(await updateRequest('/api/update/check', { method: 'POST' }));
+    } catch (err) {
+      failure = err.message;
+    } finally {
+      updateBusy = false;
+      if (updateState) renderUpdateStatus(updateState);
+      if (failure) {
+        updateStatus.textContent = failure;
+        updateStatus.className = 'update-status is-error';
+      }
+    }
+  });
+
+  updateStage.addEventListener('click', async () => {
+    setUpdateBusy(true, 'Downloading and verifying the release…');
+    let failure = '';
+    try {
+      renderUpdateStatus(await updateRequest('/api/update/stage', { method: 'POST' }));
+    } catch (err) {
+      failure = err.message;
+    } finally {
+      updateBusy = false;
+      if (updateState) renderUpdateStatus(updateState);
+      if (failure) {
+        updateStatus.textContent = failure;
+        updateStatus.className = 'update-status is-error';
+      }
+    }
+  });
+
+  async function saveUpdatePreferences() {
+    const preferences = {
+      autoCheck: updateAutoCheck.checked,
+      autoInstall: updateAutoInstall.checked,
+    };
+    setUpdateBusy(true, 'Saving update settings…');
+    let failure = '';
+    try {
+      renderUpdateStatus(await updateRequest('/api/update', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(preferences),
+      }));
+    } catch (err) {
+      failure = err.message;
+    } finally {
+      updateBusy = false;
+      if (updateState) renderUpdateStatus(updateState);
+      if (failure) {
+        updateStatus.textContent = failure;
+        updateStatus.className = 'update-status is-error';
+      }
+    }
+  }
+
+  updateAutoCheck.addEventListener('change', () => {
+    if (!updateAutoCheck.checked) updateAutoInstall.checked = false;
+    saveUpdatePreferences();
+  });
+  updateAutoInstall.addEventListener('change', saveUpdatePreferences);
+
   function renderPresets() {
     $('presets').innerHTML = savedModels.map((entry) => (
       `<button type="button" data-dest="${esc(entry.provider)}" data-model="${esc(entry.model)}">${esc(entry.model)}</button>`
@@ -281,6 +426,7 @@ document.addEventListener('DOMContentLoaded', () => {
     modelForm.reset();
     mProvider.value = dest.value;
     settingsDialog.showModal();
+    loadUpdateStatus();
   });
 
   $('settings-close').addEventListener('click', () => settingsDialog.close());
@@ -530,4 +676,5 @@ document.addEventListener('DOMContentLoaded', () => {
   render({ animate: false });
   loadKeys();
   loadModels();
+  loadUpdateStatus();
 });

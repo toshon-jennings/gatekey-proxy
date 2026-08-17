@@ -233,35 +233,68 @@
     <p class="sheet__sub">
       Saved models become the signal-path presets. Any model ID can still be entered directly.
     </p>
-    <ul class="models" id="models"></ul>
 
-    <form id="model-form" class="model-add">
-      <h3>Add model</h3>
-      <div class="model-add__fields">
-        <div class="field-edit">
-          <label for="m-provider">Destination</label>
-          <select id="m-provider" required>
-            <option value="groq">Groq</option>
-            <option value="openrouter">OpenRouter</option>
-            <option value="openai">OpenAI (direct)</option>
-            <option value="opencode">OpenCode Zen</option>
-            <option value="deepinfra">DeepInfra</option>
-            <option value="together">Together</option>
-          </select>
+    <section class="settings-group update-settings" aria-labelledby="updates-h">
+      <div class="settings-group__head">
+        <h3 id="updates-h">Updates</h3>
+        <span class="update-version" id="update-version">Current version</span>
+      </div>
+      <p class="update-status" id="update-status" role="status" aria-live="polite">Reading update status…</p>
+      <div class="update-actions">
+        <button type="button" class="btn" id="update-check">Check now</button>
+        <button type="button" class="btn btn--primary hidden" id="update-stage">Update on restart</button>
+        <a class="update-link hidden" id="update-release" target="_blank" rel="noopener noreferrer">Release notes</a>
+      </div>
+      <label class="toggle-row">
+        <span>
+          <strong>Check automatically</strong>
+          <small>Look for a new release once a day.</small>
+        </span>
+        <input type="checkbox" id="update-auto-check">
+      </label>
+      <label class="toggle-row">
+        <span>
+          <strong>Update automatically</strong>
+          <small>Download verified releases and apply them the next time Gatekey starts.</small>
+        </span>
+        <input type="checkbox" id="update-auto-install">
+      </label>
+    </section>
+
+    <section class="settings-group" aria-labelledby="models-h">
+      <div class="settings-group__head">
+        <h3 id="models-h">Models</h3>
+      </div>
+      <ul class="models" id="models"></ul>
+
+      <form id="model-form" class="model-add">
+        <h3>Add model</h3>
+        <div class="model-add__fields">
+          <div class="field-edit">
+            <label for="m-provider">Destination</label>
+            <select id="m-provider" required>
+              <option value="groq">Groq</option>
+              <option value="openrouter">OpenRouter</option>
+              <option value="openai">OpenAI (direct)</option>
+              <option value="opencode">OpenCode Zen</option>
+              <option value="deepinfra">DeepInfra</option>
+              <option value="together">Together</option>
+            </select>
+          </div>
+
+          <div class="field-edit">
+            <label for="m-model">Model ID</label>
+            <input type="text" id="m-model" spellcheck="false" autocomplete="off" placeholder="llama-3.3-70b-versatile" required>
+          </div>
         </div>
 
-        <div class="field-edit">
-          <label for="m-model">Model ID</label>
-          <input type="text" id="m-model" spellcheck="false" autocomplete="off" placeholder="llama-3.3-70b-versatile" required>
+        <p class="sheet__error hidden" id="m-error"></p>
+
+        <div class="sheet__actions">
+          <button type="submit" class="btn btn--primary">Save model</button>
         </div>
-      </div>
-
-      <p class="sheet__error hidden" id="m-error"></p>
-
-      <div class="sheet__actions">
-        <button type="submit" class="btn btn--primary">Save model</button>
-      </div>
-    </form>
+      </form>
+    </section>
   </div>
 </dialog>
 

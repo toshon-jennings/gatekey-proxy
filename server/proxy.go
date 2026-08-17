@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,17 +10,21 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
+	"github.com/toshon-jennings/gatekey-proxy/buildinfo"
 	"github.com/toshon-jennings/gatekey-proxy/config"
 	"github.com/toshon-jennings/gatekey-proxy/ui"
+	"github.com/toshon-jennings/gatekey-proxy/updater"
 )
 
 type ProxyServer struct {
-	port string
+	port    string
+	updates *updater.Manager
 }
 
 func NewProxyServer(port string) *ProxyServer {
-	return &ProxyServer{port: port}
+	return &ProxyServer{port: port, updates: updater.New(buildinfo.Current())}
 }
 
 func uiFileSystem() http.FileSystem {
@@ -30,22 +35,37 @@ func uiFileSystem() http.FileSystem {
 }
 
 func (s *ProxyServer) Start() error {
+	mux := http.NewServeMux()
+
 	// API routes for the Dashboard
-	http.HandleFunc("/api/keys", s.handleKeysAPI)
-	http.HandleFunc("/api/models", s.handleModelsAPI)
+	mux.HandleFunc("/api/keys", s.handleKeysAPI)
+	mux.HandleFunc("/api/models", s.handleModelsAPI)
+	mux.HandleFunc("/api/update", s.handleUpdateAPI)
+	mux.HandleFunc("/api/update/check", s.handleUpdateCheckAPI)
+	mux.HandleFunc("/api/update/stage", s.handleUpdateStageAPI)
 
 	// Gatekey Proxy Route
-	http.HandleFunc("/v1/chat/completions", s.handleChatCompletions)
+	mux.HandleFunc("/v1/chat/completions", s.handleChatCompletions)
 
 	// Serve the dashboard from ./ui when it exists (live edits, no rebuild);
 	// otherwise fall back to the copy embedded in the binary so
 	// "gatekey-proxy start" works from any directory.
-	http.Handle("/", http.FileServer(uiFileSystem()))
+	mux.Handle("/", http.FileServer(uiFileSystem()))
+
+	go s.updates.RunAutomaticChecks(context.Background())
 
 	// Bind to localhost only for security
 	addr := fmt.Sprintf("127.0.0.1:%s", s.port)
 	log.Printf("Starting Gatekey Proxy server securely on http://%s", addr)
-	return http.ListenAndServe(addr, nil)
+	server := &http.Server{
+		Addr:              addr,
+		Handler:           securityHeaders(mux),
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		IdleTimeout:       60 * time.Second,
+		MaxHeaderBytes:    1 << 20,
+	}
+	return server.ListenAndServe()
 }
 
 func (s *ProxyServer) handleModelsAPI(w http.ResponseWriter, r *http.Request) {
@@ -61,6 +81,7 @@ func (s *ProxyServer) handleModelsAPI(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(models)
 
 	case http.MethodPut:
+		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 		var models []config.ModelSetting
 		decoder := json.NewDecoder(r.Body)
 		decoder.DisallowUnknownFields()
@@ -100,6 +121,7 @@ func (s *ProxyServer) handleKeysAPI(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(providers)
 
 	case http.MethodPost:
+		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 		var req struct {
 			Provider string `json:"provider"`
 			Key      string `json:"key"`
@@ -143,6 +165,7 @@ func (s *ProxyServer) handleChatCompletions(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Read body to inspect the model
+	r.Body = http.MaxBytesReader(w, r.Body, 10<<20)
 	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "Failed to read body", http.StatusInternalServerError)
