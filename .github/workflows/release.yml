@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  release:
+  build-cli:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -45,7 +45,76 @@ jobs:
             tar -C build -czf "${archive}" gatekey-proxy
           done
 
-          (cd dist && sha256sum *.tar.gz > checksums.txt)
+      - name: Upload CLI artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cli-dist
+          path: dist/
+
+  build-dmg:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build macOS DMG
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME}"
+          mkdir -p "build/Gatekey Proxy.app/Contents/MacOS" "build/Gatekey Proxy.app/Contents/Resources"
+          cp desktop/Info.plist "build/Gatekey Proxy.app/Contents/Info.plist"
+          cp desktop/assets/AppIcon.icns "build/Gatekey Proxy.app/Contents/Resources/AppIcon.icns"
+
+          # Build Universal binary (arm64 + amd64)
+          CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build -trimpath \
+            -ldflags="-s -w -X github.com/toshon-jennings/gatekey-proxy/buildinfo.Version=${version}" \
+            -o build/gatekey-proxy-arm64 ./cmd/desktop
+          CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -trimpath \
+            -ldflags="-s -w -X github.com/toshon-jennings/gatekey-proxy/buildinfo.Version=${version}" \
+            -o build/gatekey-proxy-amd64 ./cmd/desktop
+
+          lipo -create -output "build/Gatekey Proxy.app/Contents/MacOS/gatekey-proxy" \
+            build/gatekey-proxy-arm64 build/gatekey-proxy-amd64
+
+          mkdir -p dist/dmg-stage
+          cp -R "build/Gatekey Proxy.app" dist/dmg-stage/
+          ln -s /Applications dist/dmg-stage/Applications
+          hdiutil create -volname "Gatekey Proxy" -srcfolder dist/dmg-stage -ov -format UDZO "dist/Gatekey-Proxy_${version}_macOS.dmg"
+          rm -rf dist/dmg-stage
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dmg-dist
+          path: dist/*.dmg
+
+  publish:
+    needs: [build-cli, build-dmg]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download CLI artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: cli-dist
+          path: dist/
+
+      - name: Download DMG artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dmg-dist
+          path: dist/
+
+      - name: Generate Checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd dist && sha256sum * > checksums.txt)
 
       - name: Publish GitHub release
         env:

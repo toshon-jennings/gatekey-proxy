@@ -1,5 +1,7 @@
 /gatekey-proxy
 /gateway-proxy
+/build/
+/dist/
 /.claude/
 /.commandcode/
 **/.claude/

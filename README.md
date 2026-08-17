@@ -30,6 +30,24 @@ endpoint, and picks the upstream based on a provider prefix in the model id.
 
 ## Install
 
+### macOS Menu Bar App (DMG)
+
+Download `Gatekey-Proxy.dmg` from the latest GitHub Release, open it, and drag **Gatekey Proxy** to your **Applications** folder.
+
+When launched, Gatekey Proxy runs silently in your macOS menu bar with:
+- **Open Dashboard**: Opens the dashboard at `http://127.0.0.1:8181/` in your default browser
+- **Launch at Login**: Opt-in toggle to run Gatekey automatically on startup
+- **Status & Version**: Real-time proxy status and build information
+- **Quit Gatekey**: Cleanly stops the proxy and exits
+
+To build the DMG from source:
+
+```sh
+make dmg
+```
+
+### CLI (Terminal)
+
 Build from source (requires Go 1.26+):
 
 ```sh
@@ -140,6 +158,8 @@ keys list                    List all configured providers
 | Path              | Role                                                        |
 |-------------------|-------------------------------------------------------------|
 | `main.go`          | applies a staged release, then calls `cli.Run()`            |
+| `cmd/desktop/`     | macOS menu bar app entry point                              |
+| `desktop/`         | menu bar tray lifecycle, autostart plist, app icons         |
 | `cli/cli.go`       | `start`, `version`, `update`, and key commands              |
 | `buildinfo/`       | build-time/current version metadata                         |
 | `config/config.go` | key store at `~/.config/gatekey-proxy/config.json`          |

@@ -35,6 +35,10 @@ func uiFileSystem() http.FileSystem {
 }
 
 func (s *ProxyServer) Start() error {
+	return s.StartWithContext(context.Background())
+}
+
+func (s *ProxyServer) StartWithContext(ctx context.Context) error {
 	mux := http.NewServeMux()
 
 	// API routes for the Dashboard
@@ -52,7 +56,9 @@ func (s *ProxyServer) Start() error {
 	// "gatekey-proxy start" works from any directory.
 	mux.Handle("/", http.FileServer(uiFileSystem()))
 
-	go s.updates.RunAutomaticChecks(context.Background())
+	checkCtx, checkCancel := context.WithCancel(ctx)
+	defer checkCancel()
+	go s.updates.RunAutomaticChecks(checkCtx)
 
 	// Bind to localhost only for security
 	addr := fmt.Sprintf("127.0.0.1:%s", s.port)
@@ -65,7 +71,19 @@ func (s *ProxyServer) Start() error {
 		IdleTimeout:       60 * time.Second,
 		MaxHeaderBytes:    1 << 20,
 	}
-	return server.ListenAndServe()
+
+	go func() {
+		<-ctx.Done()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		_ = server.Shutdown(shutdownCtx)
+	}()
+
+	err := server.ListenAndServe()
+	if err == http.ErrServerClosed {
+		return nil
+	}
+	return err
 }
 
 func (s *ProxyServer) handleModelsAPI(w http.ResponseWriter, r *http.Request) {
